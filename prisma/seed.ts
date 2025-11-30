@@ -6,71 +6,40 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Clean Architecture Tohumlama Başladı...');
-
-  // 1. YETKİLERİ OLUŞTUR (PERMISSIONS)
-  // Sistemin çalışması için gerekli temel yetkiler
-  const permissionsData = [
-    { slug: 'rbac.manage_roles', description: 'Rolleri yönetme ve yetki atama', module: 'RBAC' },
-    // İleride eklenecek diğer modüller için yer tutucular
-    { slug: 'users.manage', description: 'Kullanıcı yönetimi', module: 'USERS' },
-  ];
-
-  for (const p of permissionsData) {
-    await prisma.permission.upsert({
-      where: { slug: p.slug },
-      update: {},
-      create: {
-        slug: p.slug,
-        description: p.description,
-        module: p.module,
-      },
-    });
-  }
-  console.log('✅ Yetkiler oluşturuldu.');
-
-  // 2. ROLLERİ OLUŞTUR
+  console.log('🌱 Temiz Tohumlama (Seed) Başladı...');
+  
+  // 1. ROLLERİ OLUŞTUR
+  // Sadece Rolleri oluşturuyoruz. İzinler (Permissions) uygulama başladığında Scanner tarafından oluşturulacak.
   const adminRole = await prisma.role.upsert({
     where: { name: 'Super Admin' },
     update: {},
     create: {
       name: 'Super Admin',
-      description: 'Tam yetkili yönetici',
+      description: 'Tam yetkili sistem yöneticisi',
       isSystem: true,
     },
   });
 
-  console.log('✅ Roller oluşturuldu.');
-
-  // 3. YETKİLERİ ADMİN'E ATA
-  // Veritabanındaki tüm yetkileri çekip Admin'e bağlıyoruz
-  const allPermissions = await prisma.permission.findMany();
+  await prisma.role.upsert({
+    where: { name: 'Site Manager' },
+    update: {},
+    create: { name: 'Site Manager', isSystem: false },
+  });
   
-  for (const perm of allPermissions) {
-    await prisma.rolePermission.upsert({
-      where: {
-        roleId_permissionId: {
-          roleId: adminRole.id,
-          permissionId: perm.id,
-        },
-      },
-      update: {},
-      create: {
-        roleId: adminRole.id,
-        permissionId: perm.id,
-      },
-    });
-  }
-  console.log(`✅ Admin rolüne ${allPermissions.length} adet yetki atandı.`);
+  await prisma.role.upsert({
+    where: { name: 'Resident' },
+    update: {},
+    create: { name: 'Resident', isSystem: false },
+  });
 
-  // 4. KULLANICI OLUŞTUR
+  console.log('✅ Roller hazırlandı.');
+
+  // 2. SÜPER ADMİN KULLANICISINI OLUŞTUR
   const passwordHash = await bcrypt.hash('123456', 10);
 
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@site.com' },
-    update: {
-      roleId: adminRole.id, // Rolü güncelle (eğer değiştiyse)
-    },
+    update: { roleId: adminRole.id },
     create: {
       email: 'admin@site.com',
       passwordHash,
@@ -82,6 +51,7 @@ async function main() {
   });
 
   console.log(`✅ Admin kullanıcısı hazır: ${adminUser.email}`);
+  console.log('🚀 Seed işlemi bitti. (İzinler uygulama başlatılınca otomatik yüklenecek)');
 }
 
 main()

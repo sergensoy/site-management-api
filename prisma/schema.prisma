@@ -34,6 +34,8 @@ model User {
   loginAudits   LoginAudit[]
   auditLogs     AuditLog[]
   residencies   Residency[]
+  ownedUnits    Unit[]  @relation("UnitLandlord")
+  debts         Debt[]
 }
 
 model Role {
@@ -105,7 +107,7 @@ model Site {
   defaultDues Decimal   @db.Decimal(10, 2) @default(0)
   
   blocks      Block[]
-  // expenses    Expense[] // (İleride Finans modülüyle eklenecek)
+  expenses    Expense[] // (İleride Finans modülüyle eklenecek)
   // polls       Poll[]    // (İleride Anket modülüyle eklenecek)
   
   // Audit Fields
@@ -142,6 +144,9 @@ model Unit {
   unitNumber  String
   floor       Int?
   shareOfLand Decimal?    @db.Decimal(5, 2)
+  landlordId  Int?
+  landlord    User?     @relation("UnitLandlord", fields: [landlordId], references: [id])
+  debts       Debt[]
   
   residencies Residency[]
   
@@ -173,6 +178,55 @@ model Residency {
   deletedAt   DateTime?
 }
 
+model Expense {
+  id            Int             @id @default(autoincrement())
+  siteId        Int
+  site          Site            @relation(fields: [siteId], references: [id])
+  amount        Decimal         @db.Decimal(10, 2)
+  description   String
+  date          DateTime
+  
+  // 👇 KRİTİK: Giderin Türü
+  type          ExpenseType     @default(OPERATIONAL)
+  
+  // Dosya/Fiş İlişkisi (Dijital Arşivden sonra bağlayacağız)
+  // files File[] 
+
+  // Audit
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  deletedAt     DateTime?
+  createdById   Int?
+  updatedById   Int?
+  deletedById   Int?
+}
+
+model Debt {
+  id            Int             @id @default(autoincrement())
+  
+  // Borç kime yazıldı? (User)
+  payerId       Int
+  payer         User            @relation(fields: [payerId], references: [id])
+  
+  // Hangi daire için?
+  unitId        Int
+  unit          Unit            @relation(fields: [unitId], references: [id])
+  
+  amount        Decimal         @db.Decimal(10, 2)
+  description   String?         // "Ocak 2025 Aidatı" veya "Çatı Tamiri Payı"
+  
+  // Borcun kaynağı ne?
+  type          ExpenseType     // OPERATIONAL veya CAPITAL
+  
+  dueDate       DateTime
+  isPaid        Boolean         @default(false)
+  
+  // Audit
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  deletedAt     DateTime?
+}
+
 // ENUMS
 enum ResidencyType {
   OWNER
@@ -182,4 +236,9 @@ enum ResidencyType {
 enum ResidencyStatus {
   ACTIVE
   MOVED_OUT
+}
+
+enum ExpenseType {
+  OPERATIONAL // İşletme (Aidat, Temizlik) -> Sakine (Kiracı/Ev sahibi)
+  CAPITAL     // Demirbaş (Boya, Tadilat) -> Sadece Ev Sahibine
 }
