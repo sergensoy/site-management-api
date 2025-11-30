@@ -33,6 +33,7 @@ model User {
   // İlişkiler
   loginAudits   LoginAudit[]
   auditLogs     AuditLog[]
+  residencies   Residency[]
 }
 
 model Role {
@@ -90,4 +91,95 @@ model AuditLog {
   oldValue    Json?
   newValue    Json?
   createdAt   DateTime @default(now())
+}
+
+// =========================================================
+// 3. MÜLK YÖNETİMİ (PROPERTY DOMAIN)
+// =========================================================
+
+model Site {
+  id          Int       @id @default(autoincrement())
+  name        String
+  address     String?
+  city        String?
+  defaultDues Decimal   @db.Decimal(10, 2) @default(0)
+  
+  blocks      Block[]
+  // expenses    Expense[] // (İleride Finans modülüyle eklenecek)
+  // polls       Poll[]    // (İleride Anket modülüyle eklenecek)
+  
+  // Audit Fields
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  
+  createdById Int?
+  updatedById Int?
+  deletedById Int?
+}
+
+model Block {
+  id        Int       @id @default(autoincrement())
+  siteId    Int
+  site      Site      @relation(fields: [siteId], references: [id])
+  name      String
+  
+  units     Unit[]
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  
+  createdById Int?
+  updatedById Int?
+  deletedById Int?
+}
+
+model Unit {
+  id          Int         @id @default(autoincrement())
+  blockId     Int
+  block       Block       @relation(fields: [blockId], references: [id])
+  unitNumber  String
+  floor       Int?
+  shareOfLand Decimal?    @db.Decimal(5, 2)
+  
+  residencies Residency[]
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  
+  createdById Int?
+  updatedById Int?
+  deletedById Int?
+}
+
+model Residency {
+  id          Int             @id @default(autoincrement())
+  unitId      Int
+  unit        Unit            @relation(fields: [unitId], references: [id])
+  userId      Int
+  user        User            @relation(fields: [userId], references: [id])
+  type        ResidencyType   
+  status      ResidencyStatus @default(ACTIVE)
+  
+  moveInDate  DateTime?
+  moveOutDate DateTime?
+  
+  // debts       Debt[] // (İleride Finans modülüyle eklenecek)
+  
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+}
+
+// ENUMS
+enum ResidencyType {
+  OWNER
+  TENANT
+}
+
+enum ResidencyStatus {
+  ACTIVE
+  MOVED_OUT
 }
