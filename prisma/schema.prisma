@@ -178,23 +178,29 @@ model Residency {
   deletedAt   DateTime?
 }
 
+// =========================================================
+// 4. FİNANS VE OPERASYON (YENİ EKLENENLER)
+// =========================================================
+
 model Expense {
-  id            Int             @id @default(autoincrement())
+  id            Int               @id @default(autoincrement())
   siteId        Int
-  site          Site            @relation(fields: [siteId], references: [id])
-  amount        Decimal         @db.Decimal(10, 2)
+  site          Site              @relation(fields: [siteId], references: [id])
+  amount        Decimal           @db.Decimal(10, 2)
   description   String
   date          DateTime
   
-  // 👇 KRİTİK: Giderin Türü
-  type          ExpenseType     @default(OPERATIONAL)
+  // Gider Türü: İşletme mi, Demirbaş mı?
+  type          ExpenseType       @default(OPERATIONAL)
   
-  // Dosya/Fiş İlişkisi (Dijital Arşivden sonra bağlayacağız)
-  // files File[] 
+  // Dosya İlişkisi (Daha sonra File modülü ile bağlanacak, şimdilik opsiyonel bırakalım veya File tablosu varsa bağlayalım)
+  // files File[] (Eğer File modeliniz varsa bu satırı açın)
+  
+  status        TransactionStatus @default(CONFIRMED)
 
   // Audit
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
   deletedAt     DateTime?
   createdById   Int?
   updatedById   Int?
@@ -202,29 +208,45 @@ model Expense {
 }
 
 model Debt {
-  id            Int             @id @default(autoincrement())
+  id            Int               @id @default(autoincrement())
   
-  // Borç kime yazıldı? (User)
+  // Kime borç yazıldı?
   payerId       Int
-  payer         User            @relation(fields: [payerId], references: [id])
+  payer         User              @relation(fields: [payerId], references: [id])
   
   // Hangi daire için?
   unitId        Int
-  unit          Unit            @relation(fields: [unitId], references: [id])
+  unit          Unit              @relation(fields: [unitId], references: [id])
   
-  amount        Decimal         @db.Decimal(10, 2)
-  description   String?         // "Ocak 2025 Aidatı" veya "Çatı Tamiri Payı"
-  
-  // Borcun kaynağı ne?
-  type          ExpenseType     // OPERATIONAL veya CAPITAL
+  amount        Decimal           @db.Decimal(10, 2)
+  description   String?
+  type          ExpenseType       // Borcun kaynağı (Aidat/Demirbaş)
   
   dueDate       DateTime
-  isPaid        Boolean         @default(false)
+  isPaid        Boolean           @default(false)
+  status        TransactionStatus @default(CONFIRMED)
   
+  payments      Payment[]
+
   // Audit
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
   deletedAt     DateTime?
+}
+
+model Payment {
+  id            Int               @id @default(autoincrement())
+  debtId        Int
+  debt          Debt              @relation(fields: [debtId], references: [id])
+  amount        Decimal           @db.Decimal(10, 2)
+  paymentDate   DateTime          @default(now())
+  paymentMethod String            // CASH, TRANSFER, CREDIT_CARD
+  status        TransactionStatus @default(CONFIRMED)
+  
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
+  createdById   Int?              // Ödemeyi sisteme giren admin
 }
 
 // ENUMS
@@ -239,6 +261,11 @@ enum ResidencyStatus {
 }
 
 enum ExpenseType {
-  OPERATIONAL // İşletme (Aidat, Temizlik) -> Sakine (Kiracı/Ev sahibi)
-  CAPITAL     // Demirbaş (Boya, Tadilat) -> Sadece Ev Sahibine
+  OPERATIONAL // Kiracı/Oturan öder
+  CAPITAL     // Ev Sahibi öder
+}
+
+enum TransactionStatus {
+  CONFIRMED
+  CANCELED
 }
