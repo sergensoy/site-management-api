@@ -5,8 +5,10 @@ import { UpdateRolePermissionsDto } from './dto/update-role-permissions.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../../infrastructure/common/guards/permission.guard';
 import { RequirePermissions } from '../../infrastructure/common/decorators/require-permission.decorator';
+import { DefineResource } from 'src/infrastructure/common/decorators/define-resource.decorator';
 
 @Controller('roles')
+@DefineResource('roles', 'Rol')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard) // JWT ve Yetki Koruması
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}

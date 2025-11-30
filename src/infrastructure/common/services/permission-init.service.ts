@@ -1,3 +1,5 @@
+// src/infrastructure/common/services/permission-init.service.ts
+
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PERMISSIONS } from '../../../core/constants/permissions';
@@ -43,7 +45,6 @@ export class PermissionInitService implements OnModuleInit {
       });
 
       // 2. Admin'e Otomatik Ata (Eğer atanmamışsa)
-      // Bu sayede yeni eklediğiniz yetkiyi admin direkt kullanabilir.
       const rolePermissionExists = await this.prisma.rolePermission.findUnique({
         where: {
           roleId_permissionId: {
@@ -67,7 +68,7 @@ export class PermissionInitService implements OnModuleInit {
     if (newCount > 0) {
       this.logger.log(`✅ ${newCount} yeni yetki sisteme eklendi ve Admin'e atandı.`);
     } else {
-      this.logger.log('✨ Tüm yetkiler güncel.');
+      this.logger.log('✨ Özel yetkiler (Custom Permissions) güncel.');
     }
   }
 }
