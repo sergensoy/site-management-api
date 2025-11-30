@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// 1. KİMLİK VE YETKİLENDİRME
+// ==========================================
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  phoneNumber   String?
+  
+  isActive      Boolean   @default(true)
+
+  // 👇 YENİ EKLENEN: Rol İlişkisi
+  roleId        Int?
+  role          Role?     @relation(fields: [roleId], references: [id])
+  
+  // AUDIT & SOFT DELETE
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  
+  // İlişkiler
+  loginAudits   LoginAudit[]
+  auditLogs     AuditLog[]
+}
+
+model Role {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique // "Super Admin", "Resident"
+  description String?
+  isSystem    Boolean   @default(false) // true ise silinemez
+  
+  users       User[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  slug        String           @unique // 'finance.create'
+  description String?
+  module      String           // 'FINANCE'
+  
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId Int
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+// ==========================================
+// 2. GÜVENLİK VE DENETİM
+// ==========================================
+
+model LoginAudit {
+  id            Int      @id @default(autoincrement())
+  userId        Int?
+  user          User?    @relation(fields: [userId], references: [id])
+  ipAddress     String?
+  status        String   // SUCCESS, FAILED
+  failureReason String?  
+  createdAt     DateTime @default(now())
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String   // CREATE, UPDATE, DELETE
+  resource    String   // User, Site, Expense
+  oldValue    Json?
+  newValue    Json?
+  createdAt   DateTime @default(now())
+}
