@@ -13,6 +13,8 @@ import { ExpenseModule } from './use-cases/expense/expense.module';
 import { DebtModule } from './use-cases/debt/debt.module';
 import { PaymentModule } from './use-cases/payment/payment.module';
 import { ResidencyModule } from './use-cases/residency/residency.module';
+import { ScheduledTaskModule } from './use-cases/scheduled-task/scheduled-task.module';
+import { TaskHandlersModule } from './task-handlers/task-handlers.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { ResidencyModule } from './use-cases/residency/residency.module';
     DebtModule,
     PaymentModule,
     ResidencyModule,
+    TaskHandlersModule,
+    ScheduledTaskModule,
   ],
   controllers: [],
   providers: [

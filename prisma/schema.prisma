@@ -36,6 +36,7 @@ model User {
   residencies   Residency[]
   ownedUnits    Unit[]  @relation("UnitLandlord")
   debts         Debt[]
+  createdTasks  ScheduledTask[]
 }
 
 model Role {
@@ -268,4 +269,69 @@ enum ExpenseType {
 enum TransactionStatus {
   CONFIRMED
   CANCELED
+}
+
+// =========================================================
+// 5. SCHEDULED TASKS / ROBOT SİSTEMİ
+// =========================================================
+
+model ScheduledTask {
+  id              Int       @id @default(autoincrement())
+  name            String
+  description     String?
+  handlerName     String    // Handler dosyasının adı (örn: "monthly-dues-report")
+  cronExpression  String?   // Cron expression (örn: "0 0 * * *")
+  scheduleType    ScheduleType
+  intervalValue   Int?      // Interval için (saniye cinsinden)
+  startDate       DateTime?
+  endDate         DateTime?
+  status          TaskStatus @default(ACTIVE)
+  maxRetries      Int       @default(3)
+  retryDelay      Int       @default(60) // saniye
+  payload         Json?     // Handler'a gönderilecek parametreler
+  config          Json?     // Ek konfigürasyonlar
+  
+  createdById     Int?
+  createdBy       User?     @relation(fields: [createdById], references: [id])
+  executions      TaskExecution[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+}
+
+model TaskExecution {
+  id              Int       @id @default(autoincrement())
+  taskId          Int
+  task            ScheduledTask @relation(fields: [taskId], references: [id])
+  status          ExecutionStatus
+  startedAt       DateTime
+  completedAt     DateTime?
+  duration        Int?      // milisaniye
+  result          Json?     // Execution sonucu
+  error           String?   @db.Text // Hata mesajı
+  retryCount      Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+}
+
+enum ScheduleType {
+  CRON      // Cron expression ile
+  INTERVAL  // Her X saniyede bir
+  ONCE      // Tek seferlik
+}
+
+enum TaskStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  FAILED
+  DISABLED
+}
+
+enum ExecutionStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
 }
