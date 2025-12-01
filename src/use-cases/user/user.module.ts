@@ -12,7 +12,7 @@ import { PrismaUserRepository } from '../../infrastructure/repositories/prisma-u
     PrismaService,
     { provide: IUserRepository, useClass: PrismaUserRepository },
   ],
-  exports: [UserService],
+  exports: [UserService, IUserRepository],
 })
 export class UserModule {}
 

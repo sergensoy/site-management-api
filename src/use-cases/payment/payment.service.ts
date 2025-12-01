@@ -1,4 +1,5 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IPaymentRepository } from '../../core/repositories/i-payment.repository';
 import { IDebtRepository } from '../../core/repositories/i-debt.repository';
 import { Payment } from '../../core/entities/payment.entity';
@@ -8,6 +9,7 @@ import { UpdatePaymentDto } from './dto/update-payment.dto';
 import { FilterPaymentDto } from './dto/filter-payment.dto';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { PaymentMapper } from '../../infrastructure/mappers/payment.mapper';
+import { PaymentCreatedEvent } from '../../core/events/payment-created.event';
 
 @Injectable()
 export class PaymentService {
@@ -15,6 +17,7 @@ export class PaymentService {
     @Inject(IPaymentRepository) private paymentRepository: IPaymentRepository,
     @Inject(IDebtRepository) private debtRepository: IDebtRepository,
     private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async create(dto: CreatePaymentDto, userId: number): Promise<Payment> {
@@ -63,6 +66,17 @@ export class PaymentService {
           data: { isPaid: true },
         });
       }
+
+      // Event emit et
+      this.eventEmitter.emit(
+        'payment.created',
+        new PaymentCreatedEvent(
+          savedPayment.id,
+          debt.payerId,
+          debt.id,
+          Number(savedPayment.amount),
+        ),
+      );
 
       return savedPayment;
     });

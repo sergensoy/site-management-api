@@ -1,15 +1,18 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IDebtRepository } from '../../core/repositories/i-debt.repository';
 import { Debt } from '../../core/entities/debt.entity';
 import { TransactionStatus } from '../../core/entities/expense.entity';
 import { CreateDebtDto } from './dto/create-debt.dto';
 import { UpdateDebtDto } from './dto/update-debt.dto';
 import { FilterDebtDto } from './dto/filter-debt.dto';
+import { DebtCreatedEvent } from '../../core/events/debt-created.event';
 
 @Injectable()
 export class DebtService {
   constructor(
     @Inject(IDebtRepository) private debtRepository: IDebtRepository,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async create(dto: CreateDebtDto): Promise<Debt> {
@@ -18,7 +21,20 @@ export class DebtService {
       isPaid: false,
       status: TransactionStatus.CONFIRMED,
     });
-    return this.debtRepository.create(newDebt);
+    const createdDebt = await this.debtRepository.create(newDebt);
+
+    // Event emit et
+    this.eventEmitter.emit(
+      'debt.created',
+      new DebtCreatedEvent(
+        createdDebt.id,
+        createdDebt.payerId,
+        Number(createdDebt.amount),
+        createdDebt.dueDate,
+      ),
+    );
+
+    return createdDebt;
   }
 
   async findAll(filterDto: FilterDebtDto) {

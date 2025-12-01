@@ -31,12 +31,14 @@ model User {
   deletedAt     DateTime?
   
   // İlişkiler
-  loginAudits   LoginAudit[]
-  auditLogs     AuditLog[]
-  residencies   Residency[]
-  ownedUnits    Unit[]  @relation("UnitLandlord")
-  debts         Debt[]
-  createdTasks  ScheduledTask[]
+  loginAudits            LoginAudit[]
+  auditLogs              AuditLog[]
+  residencies            Residency[]
+  ownedUnits             Unit[]  @relation("UnitLandlord")
+  debts                  Debt[]
+  createdTasks           ScheduledTask[]
+  notifications          Notification[]
+  notificationPreferences NotificationPreference[]
 }
 
 model Role {
@@ -332,6 +334,95 @@ enum TaskStatus {
 enum ExecutionStatus {
   RUNNING
   SUCCESS
+  FAILED
+  CANCELLED
+}
+
+// =========================================================
+// 6. BİLDİRİM SİSTEMİ (NOTIFICATION SYSTEM)
+// =========================================================
+
+model NotificationTemplate {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique // "payment.created", "debt.overdue", "welcome.email"
+  name        String
+  description String?
+  category    String    // "PAYMENT", "DEBT", "ANNOUNCEMENT", "SYSTEM"
+  channel     NotificationChannel
+  
+  subject     String?   // Email subject veya SMS başlık
+  bodyHtml    String?   @db.Text // HTML template
+  bodyText    String?   @db.Text // Plain text template
+  
+  variables   Json?     // Template değişkenleri örneği: {"userName": "string", "amount": "number"}
+  
+  isActive    Boolean   @default(true)
+  isSystem    Boolean   @default(false) // System template'ler silinemez
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  
+  notifications Notification[]
+}
+
+model Notification {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id])
+  
+  templateId     Int?
+  template        NotificationTemplate? @relation(fields: [templateId], references: [id])
+  
+  channel         NotificationChannel
+  status          NotificationStatus   @default(PENDING)
+  
+  recipient       String    // Email veya telefon numarası
+  subject         String?
+  body            String    @db.Text
+  bodyHtml        String?   @db.Text
+  
+  variables       Json?     // Gönderim sırasında kullanılan değişkenler
+  
+  sentAt          DateTime?
+  failedAt        DateTime?
+  failureReason   String?   @db.Text
+  
+  retryCount      Int       @default(0)
+  maxRetries      Int       @default(3)
+  
+  metadata        Json?     // Ek bilgiler (event type, resource id, vb.)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model NotificationPreference {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id])
+  
+  category        String    // "PAYMENT", "DEBT", "ANNOUNCEMENT", "SYSTEM", "ALL"
+  channel         NotificationChannel
+  
+  enabled         Boolean   @default(true)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([userId, category, channel])
+  @@index([userId])
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
   FAILED
   CANCELLED
 }

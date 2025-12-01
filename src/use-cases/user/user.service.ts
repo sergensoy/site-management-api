@@ -1,4 +1,5 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IUserRepository } from '../../core/repositories/i-user.repository';
 import { User } from '../../core/entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -7,11 +8,13 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { AssignRoleDto } from './dto/assign-role.dto';
 import { FilterUserDto } from './dto/filter-user.dto';
 import * as bcrypt from 'bcrypt';
+import { UserCreatedEvent } from '../../core/events/user-created.event';
 
 @Injectable()
 export class UserService {
   constructor(
     @Inject(IUserRepository) private userRepository: IUserRepository,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async create(dto: CreateUserDto, userId: number): Promise<User> {
@@ -34,7 +37,20 @@ export class UserService {
       isActive: true,
     });
 
-    return this.userRepository.create(newUser);
+    const createdUser = await this.userRepository.create(newUser);
+
+    // Event emit et
+    this.eventEmitter.emit(
+      'user.created',
+      new UserCreatedEvent(
+        createdUser.id,
+        createdUser.email,
+        createdUser.firstName,
+        createdUser.lastName,
+      ),
+    );
+
+    return createdUser;
   }
 
   async findAll(filterDto: FilterUserDto) {
