@@ -19,6 +19,8 @@ export class PrismaUserRepository implements IUserRepository {
         firstName: user.firstName,
         lastName: user.lastName,
         phoneNumber: user.phoneNumber,
+        isActive: user.isActive,
+        roleId: user.roleId,
       }
     });
     return UserMapper.toDomain(savedUser);
@@ -75,13 +77,23 @@ export class PrismaUserRepository implements IUserRepository {
   }
 
   async update(id: number, user: Partial<User>): Promise<User> {
-    // Partial update mantığı
+    // Partial update - sadece undefined olmayan field'ları güncelle
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    if (user.email !== undefined) updateData.email = user.email;
+    if (user.passwordHash !== undefined) updateData.passwordHash = user.passwordHash;
+    if (user.firstName !== undefined) updateData.firstName = user.firstName;
+    if (user.lastName !== undefined) updateData.lastName = user.lastName;
+    if (user.phoneNumber !== undefined) updateData.phoneNumber = user.phoneNumber;
+    if (user.isActive !== undefined) updateData.isActive = user.isActive;
+    if (user.roleId !== undefined) updateData.roleId = user.roleId;
+    if (user.updatedById !== undefined) updateData.updatedById = user.updatedById;
+
     const updatedUser = await this.prisma.user.update({
       where: { id },
-      data: {
-        ...user,
-        updatedAt: new Date(),
-      },
+      data: updateData,
     });
     return UserMapper.toDomain(updatedUser);
   }
@@ -91,6 +103,51 @@ export class PrismaUserRepository implements IUserRepository {
     await this.prisma.user.update({
       where: { id },
       data: { deletedAt: new Date(), isActive: false },
+    });
+  }
+
+  async findByRole(roleId: number): Promise<User[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        roleId,
+        deletedAt: null,
+      },
+    });
+    return users.map((user) => UserMapper.toDomain(user));
+  }
+
+  async searchUsers(
+    searchTerm: string,
+    roleId?: number,
+    isActive?: boolean,
+  ): Promise<User[]> {
+    const where: any = {
+      deletedAt: null,
+      OR: [
+        { email: { contains: searchTerm } },
+        { firstName: { contains: searchTerm } },
+        { lastName: { contains: searchTerm } },
+      ],
+    };
+
+    if (roleId !== undefined) {
+      where.roleId = roleId;
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
+
+    const users = await this.prisma.user.findMany({
+      where,
+    });
+
+    return users.map((user) => UserMapper.toDomain(user));
+  }
+
+  async count(): Promise<number> {
+    return this.prisma.user.count({
+      where: { deletedAt: null },
     });
   }
 }

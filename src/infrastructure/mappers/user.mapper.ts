@@ -12,9 +12,13 @@ export class UserMapper {
       lastName: raw.lastName,
       phoneNumber: raw.phoneNumber,
       isActive: raw.isActive,
+      roleId: raw.roleId,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
       deletedAt: raw.deletedAt,
+      createdById: null, // User model'de bu field yok, şimdilik null
+      updatedById: null,
+      deletedById: null,
     });
   }
 
@@ -28,6 +32,7 @@ export class UserMapper {
       lastName: user.lastName,
       phoneNumber: user.phoneNumber,
       isActive: user.isActive,
+      roleId: user.roleId,
     };
   }
 }

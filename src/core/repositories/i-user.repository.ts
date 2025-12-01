@@ -16,6 +16,11 @@ export interface IUserRepository {
   delete(id: number): Promise<void>;
 
   findByIdWithPermissions(id: number): Promise<UserWithRole | null>;
+
+  // Additional methods for filtering and searching
+  findByRole(roleId: number): Promise<User[]>;
+  searchUsers(searchTerm: string, roleId?: number, isActive?: boolean): Promise<User[]>;
+  count(): Promise<number>;
 }
 
 // NestJS Dependency Injection için Token
