@@ -1,0 +1,9 @@
+export enum FileCategory {
+  EXPENSE = 'EXPENSE',
+  ANNOUNCEMENT = 'ANNOUNCEMENT',
+  CONTRACT = 'CONTRACT',
+  GENERAL = 'GENERAL',
+  REPORT = 'REPORT',
+  INVOICE = 'INVOICE',
+}
+

@@ -196,9 +196,6 @@ model Expense {
   // Gider Türü: İşletme mi, Demirbaş mı?
   type          ExpenseType       @default(OPERATIONAL)
   
-  // Dosya İlişkisi (Daha sonra File modülü ile bağlanacak, şimdilik opsiyonel bırakalım veya File tablosu varsa bağlayalım)
-  // files File[] (Eğer File modeliniz varsa bu satırı açın)
-  
   status        TransactionStatus @default(CONFIRMED)
 
   // Audit
@@ -425,4 +422,75 @@ enum NotificationStatus {
   SENT
   FAILED
   CANCELLED
+}
+
+// =========================================================
+// 7. DOSYA YÖNETİMİ (FILE MANAGEMENT)
+// =========================================================
+
+model File {
+  id              Int       @id @default(autoincrement())
+  originalName    String    // Kullanıcının yüklediği dosya adı
+  storedName      String    // Sunucuda saklanan dosya adı (UUID + original name)
+  path            String    // Dosya yolu (uploads/2025/12/01/uuid-filename.pdf)
+  mimeType        String    // MIME type (application/pdf, image/jpeg, vb.)
+  size            BigInt    // Dosya boyutu (bytes)
+  category        FileCategory @default(GENERAL)
+  storageType     StorageType @default(LOCAL)
+  status          FileStatus @default(ACTIVE)
+  
+  // İlişkiler
+  attachments     FileAttachment[]
+  
+  // Audit
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  createdById     Int?
+  updatedById     Int?
+  deletedById     Int?
+  
+  @@index([category])
+  @@index([status])
+  @@index([storageType])
+  @@index([deletedAt])
+}
+
+model FileAttachment {
+  id              Int       @id @default(autoincrement())
+  fileId          Int
+  file            File      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  
+  // Polymorphic relation: Hangi entity'ye ait?
+  entityType      String    // "Expense", "Site", "Unit", "Announcement", vb.
+  entityId        Int       // İlgili entity'nin ID'si
+  
+  description     String?   // Opsiyonel açıklama
+  
+  // Audit
+  createdAt       DateTime  @default(now())
+  createdById     Int?
+  
+  @@index([entityType, entityId])
+  @@index([fileId])
+}
+
+enum FileCategory {
+  EXPENSE        // Gider dosyaları
+  ANNOUNCEMENT   // Duyuru dosyaları
+  CONTRACT       // Sözleşme dosyaları
+  GENERAL        // Genel dosyalar
+  REPORT         // Rapor dosyaları
+  INVOICE        // Fatura dosyaları
+}
+
+enum FileStatus {
+  ACTIVE
+  DELETED
+}
+
+enum StorageType {
+  LOCAL  // Local disk storage
+  S3     // AWS S3 (ileride)
+  AZURE  // Azure Blob Storage (ileride)
 }

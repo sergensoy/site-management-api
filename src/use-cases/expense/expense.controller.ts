@@ -12,6 +12,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ExpenseService } from './expense.service';
+import { FileService } from '../file/file.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { FilterExpenseDto } from './dto/filter-expense.dto';
@@ -19,12 +20,17 @@ import { AuthGuard } from '@nestjs/passport';
 import { PermissionsGuard } from '../../infrastructure/common/guards/permission.guard';
 import { RequirePermissions } from '../../infrastructure/common/decorators/require-permission.decorator';
 import { DefineResource } from '../../infrastructure/common/decorators/define-resource.decorator';
+import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 
+@ApiTags('Expenses')
 @Controller('expenses')
 @DefineResource('expense', 'Gider')
 @UseGuards(AuthGuard('jwt'), PermissionsGuard)
 export class ExpenseController {
-  constructor(private readonly expenseService: ExpenseService) {}
+  constructor(
+    private readonly expenseService: ExpenseService,
+    private readonly fileService: FileService,
+  ) {}
 
   @Post()
   @RequirePermissions('expense.create')
@@ -70,6 +76,14 @@ export class ExpenseController {
   @RequirePermissions('expense.update')
   cancel(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     return this.expenseService.cancel(id, req.user.id);
+  }
+
+  @Get(':id/files')
+  @RequirePermissions('expense.view')
+  @ApiOperation({ summary: 'Expense\'e bağlı dosyaları getir' })
+  @ApiParam({ name: 'id', type: 'number' })
+  getFiles(@Param('id', ParseIntPipe) id: number) {
+    return this.fileService.findByEntity('Expense', id);
   }
 }
 

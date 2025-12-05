@@ -6,8 +6,10 @@ import { IExpenseRepository } from '../../core/repositories/i-expense.repository
 import { PrismaExpenseRepository } from '../../infrastructure/repositories/prisma-expense.repository';
 import { IUserRepository } from '../../core/repositories/i-user.repository';
 import { PrismaUserRepository } from '../../infrastructure/repositories/prisma-user.repository';
+import { FileModule } from '../file/file.module';
 
 @Module({
+  imports: [FileModule],
   controllers: [ExpenseController],
   providers: [
     ExpenseService,
