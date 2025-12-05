@@ -40,6 +40,8 @@ model User {
   notifications          Notification[]
   notificationPreferences NotificationPreference[]
   announcementReads      AnnouncementRead[]
+  pollResponses         PollResponse[]
+  createdPolls          Poll[]
 }
 
 model Role {
@@ -113,7 +115,7 @@ model Site {
   blocks      Block[]
   expenses    Expense[]
   announcements Announcement[]
-  // polls       Poll[]    // (İleride Anket modülüyle eklenecek)
+  polls       Poll[]
   
   // Audit Fields
   createdAt   DateTime  @default(now())
@@ -484,6 +486,7 @@ enum FileCategory {
   GENERAL        // Genel dosyalar
   REPORT         // Rapor dosyaları
   INVOICE        // Fatura dosyaları
+  POLL           // Anket dosyaları
 }
 
 enum FileStatus {
@@ -589,4 +592,158 @@ enum TargetAudienceType {
   BLOCKS    // Belirli bloklar
   UNITS     // Belirli daireler
   USERS     // Belirli kullanıcılar
+}
+
+// =========================================================
+// 9. ANKET YÖNETİMİ (POLL/SURVEY SYSTEM)
+// =========================================================
+
+model Poll {
+  id              Int       @id @default(autoincrement())
+  title           String
+  description     String?   @db.Text
+  status          PollStatus @default(DRAFT)
+  
+  // Site ilişkisi (opsiyonel)
+  siteId          Int?
+  site            Site?     @relation(fields: [siteId], references: [id])
+  
+  // Oluşturan kullanıcı
+  createdById     Int
+  createdBy       User      @relation(fields: [createdById], references: [id])
+  
+  // Tarihler
+  startDate       DateTime? // Başlangıç tarihi (opsiyonel)
+  endDate         DateTime? // Bitiş tarihi (opsiyonel)
+  
+  // Görünürlük ve düzenlenebilirlik ayarları
+  resultVisibility PollResultVisibility @default(AFTER_CLOSED)
+  responseEditable PollResponseEditable @default(UNTIL_CLOSED)
+  
+  // Hedef kitle yönetimi
+  targetAudience  TargetAudienceType @default(ALL)
+  targetIds       Json?   // Hedef ID'ler (blok, daire veya kullanıcı ID'leri array)
+  
+  // İlişkiler
+  questions       PollQuestion[]
+  responses       PollResponse[]
+  
+  // Audit
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  updatedById     Int?
+  deletedById     Int?
+  
+  @@index([status])
+  @@index([siteId])
+  @@index([createdById])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([deletedAt])
+}
+
+model PollQuestion {
+  id              Int       @id @default(autoincrement())
+  pollId          Int
+  poll            Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  
+  questionText    String    @db.Text
+  questionType    PollQuestionType
+  order           Int       @default(0) // Soru sırası
+  isRequired      Boolean   @default(false)
+  
+  // İlişkiler
+  options         PollOption[]
+  answers         PollResponseAnswer[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([pollId])
+  @@index([order])
+}
+
+model PollOption {
+  id              Int       @id @default(autoincrement())
+  questionId     Int
+  question        PollQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  optionText      String
+  order           Int       @default(0) // Seçenek sırası
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([questionId])
+  @@index([order])
+}
+
+model PollResponse {
+  id              Int       @id @default(autoincrement())
+  pollId          Int
+  poll            Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // İlişkiler
+  answers         PollResponseAnswer[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([pollId, userId])
+  @@index([pollId])
+  @@index([userId])
+}
+
+model PollResponseAnswer {
+  id              Int       @id @default(autoincrement())
+  responseId      Int
+  response        PollResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  
+  questionId      Int
+  question        PollQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  // Yanıt verisi (farklı tipler için)
+  answerText      String?   @db.Text // Metin yanıtları için
+  answerNumber    Decimal?  @db.Decimal(10, 2) // Sayısal yanıtlar için
+  answerDate      DateTime? // Tarih yanıtları için
+  selectedOptionIds Json?   // Seçilen seçenek ID'leri (SINGLE_CHOICE veya MULTIPLE_CHOICE için)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([responseId, questionId])
+  @@index([responseId])
+  @@index([questionId])
+}
+
+enum PollStatus {
+  DRAFT     // Taslak
+  PUBLISHED // Yayında
+  CLOSED    // Kapatıldı
+  ARCHIVED  // Arşivlendi
+}
+
+enum PollQuestionType {
+  SINGLE_CHOICE   // Tek seçim (radio button)
+  MULTIPLE_CHOICE // Çoklu seçim (checkbox)
+  SHORT_TEXT      // Kısa metin (input)
+  LONG_TEXT       // Uzun metin (textarea)
+  NUMBER          // Sayısal değer
+  DATE            // Tarih seçimi
+}
+
+enum PollResultVisibility {
+  PUBLIC        // Herkese açık (anket açıkken bile)
+  PRIVATE       // Sadece anket sahibi/admin
+  AFTER_CLOSED  // Anket kapandıktan sonra herkese açık
+}
+
+enum PollResponseEditable {
+  ALWAYS        // İstediği zaman değiştirebilir
+  UNTIL_CLOSED  // Anket kapanana kadar değiştirebilir
+  NEVER         // Bir kez yanıt verildikten sonra değiştirilemez
 }

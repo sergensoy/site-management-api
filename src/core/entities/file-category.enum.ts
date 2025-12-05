@@ -5,5 +5,6 @@ export enum FileCategory {
   GENERAL = 'GENERAL',
   REPORT = 'REPORT',
   INVOICE = 'INVOICE',
+  POLL = 'POLL',
 }
 

@@ -23,6 +23,7 @@ import { NotificationListenerModule } from './infrastructure/common/listeners/no
 import { NotificationQueueService } from './infrastructure/common/services/notification-queue.service';
 import { FileModule } from './use-cases/file/file.module';
 import { AnnouncementModule } from './use-cases/announcement/announcement.module';
+import { PollModule } from './use-cases/poll/poll.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AnnouncementModule } from './use-cases/announcement/announcement.module
     NotificationListenerModule,
     FileModule,
     AnnouncementModule,
+    PollModule,
   ],
   controllers: [],
   providers: [

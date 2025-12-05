@@ -5,6 +5,8 @@ import { DebtCreatedEvent } from '../../../core/events/debt-created.event';
 import { DebtOverdueEvent } from '../../../core/events/debt-overdue.event';
 import { UserCreatedEvent } from '../../../core/events/user-created.event';
 import { AnnouncementPublishedEvent } from '../../../core/events/announcement-published.event';
+import { PollPublishedEvent } from '../../../core/events/poll-published.event';
+import { PollClosedEvent } from '../../../core/events/poll-closed.event';
 import { NotificationService } from '../services/notification.service';
 import { IUserRepository } from '../../../core/repositories/i-user.repository';
 import { TargetAudienceType } from '../../../core/entities/target-audience-type.enum';
@@ -195,6 +197,85 @@ export class NotificationListener {
       this.logger.log(`Sent announcement notifications to ${targetUserIds.length} users`);
     } catch (error) {
       this.logger.error(`Failed to send announcement notifications:`, error);
+    }
+  }
+
+  @OnEvent('poll.published')
+  async handlePollPublished(event: PollPublishedEvent) {
+    this.logger.log(`Poll published event received: ${event.pollId}`);
+
+    try {
+      const targetUserIds: number[] = [];
+
+      // Hedef kitleye göre kullanıcı ID'lerini topla
+      switch (event.targetAudience) {
+        case TargetAudienceType.ALL:
+          // Tüm aktif kullanıcılar
+          const allUsers = await this.userRepository.findAll();
+          targetUserIds.push(...allUsers.filter(u => u.isActive).map(u => u.id));
+          break;
+
+        case TargetAudienceType.USERS:
+          // Belirli kullanıcılar
+          if (event.targetIds) {
+            targetUserIds.push(...event.targetIds);
+          }
+          break;
+
+        case TargetAudienceType.SITE:
+          // Site'e ait kullanıcılar (residency üzerinden)
+          // Bu logic daha detaylı implement edilebilir
+          this.logger.log(`Site-based poll: ${event.siteId}`);
+          break;
+
+        case TargetAudienceType.UNITS:
+        case TargetAudienceType.BLOCKS:
+          // Unit/Block bazlı kullanıcılar (residency üzerinden)
+          // Bu logic daha detaylı implement edilebilir
+          this.logger.log(`Unit/Block-based poll`);
+          break;
+      }
+
+      // Hedef kitleye bildirim gönder
+      for (const userId of targetUserIds) {
+        try {
+          const user = await this.userRepository.findById(userId);
+          if (!user || !user.isActive) continue;
+
+          await this.notificationService.sendByTemplate(
+            userId,
+            'poll.published',
+            {
+              userName: `${user.firstName} ${user.lastName}`,
+              pollTitle: event.title,
+              pollId: event.pollId,
+            },
+            {
+              eventType: 'poll.published',
+              pollId: event.pollId,
+            },
+          );
+        } catch (error) {
+          this.logger.error(`Failed to send poll notification to user ${userId}:`, error);
+        }
+      }
+
+      this.logger.log(`Sent poll notifications to ${targetUserIds.length} users`);
+    } catch (error) {
+      this.logger.error(`Failed to send poll notifications:`, error);
+    }
+  }
+
+  @OnEvent('poll.closed')
+  async handlePollClosed(event: PollClosedEvent) {
+    this.logger.log(`Poll closed event received: ${event.pollId}`);
+
+    try {
+      // Anket kapandığında bildirim gönderme (opsiyonel)
+      // Şimdilik sadece log
+      this.logger.log(`Poll ${event.pollId} (${event.title}) closed at ${event.closedAt}`);
+    } catch (error) {
+      this.logger.error(`Failed to handle poll closed event:`, error);
     }
   }
 }

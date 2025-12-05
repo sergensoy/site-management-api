@@ -1,0 +1,9 @@
+export enum PollQuestionType {
+  SINGLE_CHOICE = 'SINGLE_CHOICE',
+  MULTIPLE_CHOICE = 'MULTIPLE_CHOICE',
+  SHORT_TEXT = 'SHORT_TEXT',
+  LONG_TEXT = 'LONG_TEXT',
+  NUMBER = 'NUMBER',
+  DATE = 'DATE',
+}
+
