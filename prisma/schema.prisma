@@ -39,6 +39,7 @@ model User {
   createdTasks           ScheduledTask[]
   notifications          Notification[]
   notificationPreferences NotificationPreference[]
+  announcementReads      AnnouncementRead[]
 }
 
 model Role {
@@ -110,7 +111,8 @@ model Site {
   defaultDues Decimal   @db.Decimal(10, 2) @default(0)
   
   blocks      Block[]
-  expenses    Expense[] // (İleride Finans modülüyle eklenecek)
+  expenses    Expense[]
+  announcements Announcement[]
   // polls       Poll[]    // (İleride Anket modülüyle eklenecek)
   
   // Audit Fields
@@ -493,4 +495,98 @@ enum StorageType {
   LOCAL  // Local disk storage
   S3     // AWS S3 (ileride)
   AZURE  // Azure Blob Storage (ileride)
+}
+
+// =========================================================
+// 8. DUYURU YÖNETİMİ (ANNOUNCEMENT SYSTEM)
+// =========================================================
+
+model Announcement {
+  id              Int       @id @default(autoincrement())
+  title           String
+  content         String   @db.Text // HTML destekli içerik
+  category        AnnouncementCategory
+  priority        AnnouncementPriority @default(NORMAL)
+  status          AnnouncementStatus @default(DRAFT)
+  
+  // Site ilişkisi (opsiyonel - tüm site için)
+  siteId          Int?
+  site            Site?    @relation(fields: [siteId], references: [id])
+  
+  // Yayın ve son geçerlilik tarihleri
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+  
+  // Sabitleme
+  isPinned        Boolean  @default(false)
+  
+  // Hedef kitle yönetimi
+  targetAudience  TargetAudienceType @default(ALL)
+  targetIds       Json?   // Hedef ID'ler (blok, daire veya kullanıcı ID'leri array)
+  
+  // İlişkiler
+  reads           AnnouncementRead[]
+  
+  // Audit
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  createdById     Int?
+  updatedById     Int?
+  deletedById     Int?
+  
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([siteId])
+  @@index([publishedAt])
+  @@index([expiresAt])
+  @@index([isPinned])
+  @@index([deletedAt])
+}
+
+model AnnouncementRead {
+  id              Int       @id @default(autoincrement())
+  announcementId  Int
+  announcement    Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt          DateTime  @default(now())
+  isRead          Boolean   @default(true)
+  
+  @@unique([announcementId, userId])
+  @@index([announcementId])
+  @@index([userId])
+}
+
+enum AnnouncementCategory {
+  GENEL      // Genel duyurular
+  ACIL       // Acil duyurular
+  BAKIM      // Bakım duyuruları
+  FINANS     // Finansal duyurular
+  TOPLANTI   // Toplantı duyuruları
+  ETKINLIK   // Etkinlik duyuruları
+  DIGER      // Diğer
+}
+
+enum AnnouncementPriority {
+  LOW       // Düşük öncelik
+  NORMAL    // Normal öncelik
+  HIGH      // Yüksek öncelik
+  URGENT    // Acil öncelik
+}
+
+enum AnnouncementStatus {
+  DRAFT     // Taslak
+  PUBLISHED // Yayında
+  ARCHIVED  // Arşivlendi
+  EXPIRED   // Süresi doldu
+}
+
+enum TargetAudienceType {
+  ALL       // Tüm kullanıcılar
+  SITE      // Belirli site
+  BLOCKS    // Belirli bloklar
+  UNITS     // Belirli daireler
+  USERS     // Belirli kullanıcılar
 }

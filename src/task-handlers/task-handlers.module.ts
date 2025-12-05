@@ -4,11 +4,13 @@ import { CleanupOldDataHandler } from './data-processing/cleanup-old-data.handle
 import { AccrueMonthlyDuesHandler } from './finance/accrue-monthly-dues.handler';
 import { CheckOverdueDebtsHandler } from './finance/check-overdue-debts.handler';
 import { CleanupDeletedFilesHandler } from './maintenance/cleanup-deleted-files.handler';
+import { ArchiveExpiredAnnouncementsHandler } from './maintenance/archive-expired-announcements.handler';
 import { PrismaService } from '../infrastructure/prisma/prisma.service';
 import { FileModule } from '../use-cases/file/file.module';
+import { AnnouncementModule } from '../use-cases/announcement/announcement.module';
 
 @Module({
-  imports: [FileModule],
+  imports: [FileModule, AnnouncementModule],
   providers: [
     PrismaService,
     MonthlyDuesReportHandler,
@@ -16,6 +18,7 @@ import { FileModule } from '../use-cases/file/file.module';
     AccrueMonthlyDuesHandler,
     CheckOverdueDebtsHandler,
     CleanupDeletedFilesHandler,
+    ArchiveExpiredAnnouncementsHandler,
   ],
   exports: [
     MonthlyDuesReportHandler,
@@ -23,6 +26,7 @@ import { FileModule } from '../use-cases/file/file.module';
     AccrueMonthlyDuesHandler,
     CheckOverdueDebtsHandler,
     CleanupDeletedFilesHandler,
+    ArchiveExpiredAnnouncementsHandler,
   ],
 })
 export class TaskHandlersModule {}

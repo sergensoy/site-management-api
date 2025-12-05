@@ -17,6 +17,7 @@ Site ve apartman yönetimi için geliştirilmiş, Clean Architecture prensipleri
 - **Scheduled Tasks**: Dinamik görev zamanlama ve robot sistemi
 - **Notification System**: Email ve SMS bildirim sistemi (event-driven)
 - **File Management**: Dosya yükleme, indirme ve yönetim sistemi
+- **Announcement System**: Gelişmiş duyuru yönetim sistemi (kategoriler, öncelikler, hedef kitle, okunma takibi)
 
 ### Teknik Özellikler
 - **Clean Architecture**: Core, Infrastructure, Use-Cases katmanları
@@ -60,7 +61,8 @@ src/
     ├── notification/       # Notification management
     ├── notification-template/ # Notification template management
     ├── notification-preference/ # User notification preferences
-    └── file/                # File management
+    ├── file/                # File management
+    └── announcement/        # Announcement management
 ```
 
 ## Kurulum
@@ -232,6 +234,23 @@ Uygulama başlatıldıktan sonra Swagger dokümantasyonuna erişebilirsiniz:
 - `DELETE /files/:id/permanent` - Dosyayı kalıcı olarak sil
 - `DELETE /files/attachment/:attachmentId` - Attachment'ı sil
 
+### Announcement Management
+- `POST /announcements` - Duyuru oluştur
+- `GET /announcements` - Duyuru listesi (filtreleme destekli)
+- `GET /announcements/my` - Kullanıcının görebileceği duyurular
+- `GET /announcements/unread` - Okunmamış duyurular
+- `GET /announcements/:id` - Duyuru detayı
+- `PATCH /announcements/:id` - Duyuru güncelle
+- `DELETE /announcements/:id` - Duyuru sil
+- `PATCH /announcements/:id/publish` - Duyuruyu yayınla
+- `PATCH /announcements/:id/archive` - Duyuruyu arşivle
+- `PATCH /announcements/:id/pin` - Duyuruyu sabitle/kaldır
+- `GET /announcements/:id/readers` - Duyuruyu okuyan kullanıcılar
+- `GET /announcements/:id/statistics` - Duyuru istatistikleri
+- `POST /announcements/:id/read` - Duyuruyu okundu olarak işaretle
+- `POST /announcements/read-all` - Tüm duyuruları okundu olarak işaretle (query: announcementIds)
+- `GET /announcements/:id/files` - Duyuruya bağlı dosyalar
+
 ## Scheduled Task System
 
 Sistem, handler-based plugin mimarisi ile çalışan dinamik bir görev zamanlama sistemi içerir.
@@ -281,6 +300,7 @@ POST /tasks
 - `check-overdue-debts` - Vadesi geçen borçları kontrol eder
 - `cleanup-old-data` - Eski verileri temizler
 - `cleanup-deleted-files` - Silinmiş dosyaları kalıcı olarak temizler (30 günden eski)
+- `archive-expired-announcements` - Süresi dolan duyuruları otomatik olarak arşivler
 
 ### Schedule Tipleri
 - **CRON**: Cron expression ile zamanlama (örn: `0 0 * * *` - her gün gece yarısı)
@@ -305,6 +325,8 @@ Sistem aşağıdaki event'leri otomatik olarak dinler:
 - `DebtCreatedEvent` - Yeni borç oluşturulduğunda
 - `PaymentCreatedEvent` - Ödeme yapıldığında
 - `DebtOverdueEvent` - Borç vadesi geçtiğinde
+- `AnnouncementPublishedEvent` - Duyuru yayınlandığında
+- `AnnouncementExpiredEvent` - Duyuru süresi dolduğunda
 
 ### Template Kullanımı
 Bildirim template'leri değişken desteği ile çalışır:
@@ -342,6 +364,69 @@ Sistem, polymorphic ilişkilerle çalışan profesyonel bir dosya yönetim siste
 - `GENERAL` - Genel dosyalar
 - `REPORT` - Rapor dosyaları
 - `INVOICE` - Fatura dosyaları
+
+## Announcement System
+
+Sistem, gelişmiş özelliklerle donatılmış profesyonel bir duyuru yönetim sistemi içerir.
+
+### Özellikler
+- **Kategori Yönetimi**: Duyuruları kategorilere ayırma (Genel, Bakım, Finans, Acil, Etkinlik)
+- **Öncelik Seviyeleri**: Düşük, Normal, Yüksek, Acil öncelik seviyeleri
+- **Hedef Kitle**: Duyuruları tüm sakinlere, belirli site/blok/daireye veya rollere yönlendirme
+- **Yayın Tarihleri**: Planlı yayınlama ve son geçerlilik tarihi desteği
+- **Okunma Takibi**: Kullanıcıların hangi duyuruları okuduğunu takip etme
+- **Dosya Eklentileri**: Duyurulara dosya ekleme desteği
+- **Otomatik Arşivleme**: Süresi dolan duyuruları otomatik arşivleme (scheduled task)
+- **Bildirim Entegrasyonu**: Duyuru yayınlandığında otomatik bildirim gönderimi
+- **İstatistikler**: Okunma oranları ve istatistikler
+
+### Duyuru Durumları
+- `DRAFT` - Taslak (henüz yayınlanmamış)
+- `PUBLISHED` - Yayınlanmış (aktif)
+- `ARCHIVED` - Arşivlenmiş (süresi dolmuş veya manuel arşivlenmiş)
+- `CANCELED` - İptal edilmiş
+
+### Duyuru Kategorileri
+- `GENERAL` - Genel duyurular
+- `MAINTENANCE` - Bakım duyuruları
+- `FINANCE` - Finansal duyurular
+- `EMERGENCY` - Acil duyurular
+- `EVENT` - Etkinlik duyuruları
+
+### Öncelik Seviyeleri
+- `LOW` - Düşük öncelik
+- `NORMAL` - Normal öncelik
+- `HIGH` - Yüksek öncelik
+- `URGENT` - Acil öncelik
+
+### Hedef Kitle Tipleri
+- `ALL_RESIDENTS` - Tüm sakinler
+- `SPECIFIC_SITE` - Belirli bir site
+- `SPECIFIC_BLOCK` - Belirli bir blok
+- `SPECIFIC_UNIT` - Belirli bir daire
+- `SPECIFIC_ROLES` - Belirli roller
+
+### Kullanım Örneği
+```bash
+# Duyuru oluştur
+POST /announcements
+{
+  "title": "Yıllık Genel Kurul Toplantısı",
+  "content": "Toplantı 15 Ocak'ta yapılacaktır...",
+  "category": "GENERAL",
+  "priority": "HIGH",
+  "targetAudienceType": "ALL_RESIDENTS",
+  "publishAt": "2025-01-10T10:00:00Z",
+  "expireAt": "2025-01-20T23:59:59Z",
+  "fileIds": [1, 2, 3]
+}
+
+# Duyuruyu yayınla
+PATCH /announcements/1/publish
+
+# Duyuruyu okundu olarak işaretle
+POST /announcements/1/read
+```
 
 ## Yetkilendirme
 

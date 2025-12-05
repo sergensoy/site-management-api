@@ -4,8 +4,10 @@ import { PaymentCreatedEvent } from '../../../core/events/payment-created.event'
 import { DebtCreatedEvent } from '../../../core/events/debt-created.event';
 import { DebtOverdueEvent } from '../../../core/events/debt-overdue.event';
 import { UserCreatedEvent } from '../../../core/events/user-created.event';
+import { AnnouncementPublishedEvent } from '../../../core/events/announcement-published.event';
 import { NotificationService } from '../services/notification.service';
 import { IUserRepository } from '../../../core/repositories/i-user.repository';
+import { TargetAudienceType } from '../../../core/entities/target-audience-type.enum';
 
 @Injectable()
 export class NotificationListener {
@@ -125,6 +127,74 @@ export class NotificationListener {
       );
     } catch (error) {
       this.logger.error(`Failed to send welcome email:`, error);
+    }
+  }
+
+  @OnEvent('announcement.published')
+  async handleAnnouncementPublished(event: AnnouncementPublishedEvent) {
+    this.logger.log(`Announcement published event received: ${event.announcement.id}`);
+    
+    try {
+      const announcement = event.announcement;
+      const targetUserIds: number[] = [];
+
+      // Hedef kitleye göre kullanıcı ID'lerini topla
+      switch (announcement.targetAudience) {
+        case TargetAudienceType.ALL:
+          // Tüm aktif kullanıcılar
+          const allUsers = await this.userRepository.findAll();
+          targetUserIds.push(...allUsers.filter(u => u.isActive).map(u => u.id));
+          break;
+
+        case TargetAudienceType.USERS:
+          // Belirli kullanıcılar
+          if (announcement.targetIds) {
+            targetUserIds.push(...announcement.targetIds);
+          }
+          break;
+
+        case TargetAudienceType.SITE:
+          // Site'e ait kullanıcılar (residency üzerinden)
+          // Bu logic daha detaylı implement edilebilir
+          // Şimdilik sadece log
+          this.logger.log(`Site-based announcement: ${announcement.siteId}`);
+          break;
+
+        case TargetAudienceType.UNITS:
+        case TargetAudienceType.BLOCKS:
+          // Unit/Block bazlı kullanıcılar (residency üzerinden)
+          // Bu logic daha detaylı implement edilebilir
+          this.logger.log(`Unit/Block-based announcement`);
+          break;
+      }
+
+      // Hedef kitleye bildirim gönder
+      for (const userId of targetUserIds) {
+        try {
+          const user = await this.userRepository.findById(userId);
+          if (!user || !user.isActive) continue;
+
+          await this.notificationService.sendByTemplate(
+            userId,
+            'announcement.published',
+            {
+              userName: `${user.firstName} ${user.lastName}`,
+              announcementTitle: announcement.title,
+              announcementId: announcement.id,
+            },
+            {
+              eventType: 'announcement.published',
+              announcementId: announcement.id,
+            },
+          );
+        } catch (error) {
+          this.logger.error(`Failed to send announcement notification to user ${userId}:`, error);
+        }
+      }
+
+      this.logger.log(`Sent announcement notifications to ${targetUserIds.length} users`);
+    } catch (error) {
+      this.logger.error(`Failed to send announcement notifications:`, error);
     }
   }
 }

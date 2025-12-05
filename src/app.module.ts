@@ -22,6 +22,7 @@ import { NotificationPreferenceModule } from './use-cases/notification-preferenc
 import { NotificationListenerModule } from './infrastructure/common/listeners/notification-listener.module';
 import { NotificationQueueService } from './infrastructure/common/services/notification-queue.service';
 import { FileModule } from './use-cases/file/file.module';
+import { AnnouncementModule } from './use-cases/announcement/announcement.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { FileModule } from './use-cases/file/file.module';
     NotificationPreferenceModule,
     NotificationListenerModule,
     FileModule,
+    AnnouncementModule,
   ],
   controllers: [],
   providers: [
