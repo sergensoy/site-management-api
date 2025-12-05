@@ -15,6 +15,8 @@ Site ve apartman yönetimi için geliştirilmiş, Clean Architecture prensipleri
   - Borç yönetimi (Debt)
   - Ödeme yönetimi (Payment) - Transaction destekli
 - **Scheduled Tasks**: Dinamik görev zamanlama ve robot sistemi
+- **Notification System**: Email ve SMS bildirim sistemi (event-driven)
+- **File Management**: Dosya yükleme, indirme ve yönetim sistemi
 
 ### Teknik Özellikler
 - **Clean Architecture**: Core, Infrastructure, Use-Cases katmanları
@@ -25,6 +27,8 @@ Site ve apartman yönetimi için geliştirilmiş, Clean Architecture prensipleri
 - **Soft Delete**: Veri silme işlemlerinde soft delete mekanizması
 - **Validation**: DTO tabanlı veri doğrulama (class-validator)
 - **Scheduled Task System**: Handler-based plugin mimarisi ile dinamik görev yönetimi
+- **Event-Driven Architecture**: Event emitter ile asenkron bildirim sistemi
+- **File Storage**: Local storage (cloud storage desteği için hazır)
 
 ## Mimari Yapı
 
@@ -34,12 +38,13 @@ src/
 │   ├── entities/            # Domain entities
 │   ├── repositories/       # Repository interfaces
 │   ├── constants/          # Domain constants
-│   └── interfaces/         # Domain interfaces
+│   ├── interfaces/         # Domain interfaces
+│   └── events/            # Domain events
 ├── infrastructure/         # Infrastructure Layer
 │   ├── prisma/             # Prisma service & module
 │   ├── repositories/      # Repository implementations
 │   ├── mappers/            # Domain-Persistence mappers
-│   └── common/             # Guards, Decorators, Services
+│   └── common/             # Guards, Decorators, Services, Listeners
 └── use-cases/              # Application Layer
     ├── auth/               # Authentication
     ├── user/               # User management
@@ -51,7 +56,11 @@ src/
     ├── expense/            # Expense management
     ├── debt/               # Debt management
     ├── payment/            # Payment management
-    └── scheduled-task/     # Scheduled task management
+    ├── scheduled-task/     # Scheduled task management
+    ├── notification/       # Notification management
+    ├── notification-template/ # Notification template management
+    ├── notification-preference/ # User notification preferences
+    └── file/                # File management
 ```
 
 ## Kurulum
@@ -73,6 +82,16 @@ npm install
 ```env
 DATABASE_URL="mysql://user:password@localhost:3306/site_management"
 JWT_SECRET="your-secret-key"
+
+# SMTP Configuration (Email için - opsiyonel)
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=587
+SMTP_USER="your-email@gmail.com"
+SMTP_PASS="your-app-password"
+SMTP_FROM="your-email@gmail.com"
+
+# File Upload Configuration (opsiyonel)
+UPLOADS_DIR="./uploads"
 ```
 
 3. **Veritabanı migration'larını çalıştırın:**
@@ -154,6 +173,7 @@ Uygulama başlatıldıktan sonra Swagger dokümantasyonuna erişebilirsiniz:
 - `GET /expenses/:id` - Gider detayı
 - `PATCH /expenses/:id` - Gider güncelle
 - `DELETE /expenses/:id` - Gider sil
+- `GET /expenses/:id/files` - Gidere bağlı dosyaları getir
 
 ### Debt Management
 - `POST /debts` - Borç oluştur
@@ -182,6 +202,36 @@ Uygulama başlatıldıktan sonra Swagger dokümantasyonuna erişebilirsiniz:
 - `PATCH /tasks/:id/resume` - Görevi devam ettir
 - `GET /tasks/:id/executions` - Görev çalıştırma geçmişi
 
+### Notification Management
+- `GET /notifications` - Bildirim listesi (filtreleme destekli)
+- `GET /notifications/:id` - Bildirim detayı
+- `PATCH /notifications/:id/read` - Bildirimi okundu olarak işaretle
+
+### Notification Template Management
+- `POST /notification-templates` - Template oluştur
+- `GET /notification-templates` - Template listesi (filtreleme destekli)
+- `GET /notification-templates/:id` - Template detayı
+- `PATCH /notification-templates/:id` - Template güncelle
+- `DELETE /notification-templates/:id` - Template sil
+
+### Notification Preference Management
+- `POST /notification-preferences` - Bildirim tercihi oluştur
+- `GET /notification-preferences` - Kullanıcının bildirim tercihleri
+- `PATCH /notification-preferences/:id` - Bildirim tercihini güncelle
+- `DELETE /notification-preferences/:id` - Bildirim tercihini sil
+
+### File Management
+- `POST /files/upload` - Tek dosya yükle
+- `POST /files/upload/multiple` - Çoklu dosya yükle
+- `GET /files` - Dosya listesi (filtreleme destekli)
+- `GET /files/:id` - Dosya detayı
+- `GET /files/:id/download` - Dosya indir
+- `GET /files/entity/:entityType/:entityId` - Entity'ye bağlı dosyaları getir
+- `POST /files/:id/attach` - Dosyayı entity'ye bağla
+- `DELETE /files/:id` - Dosyayı sil (soft delete)
+- `DELETE /files/:id/permanent` - Dosyayı kalıcı olarak sil
+- `DELETE /files/attachment/:attachmentId` - Attachment'ı sil
+
 ## Scheduled Task System
 
 Sistem, handler-based plugin mimarisi ile çalışan dinamik bir görev zamanlama sistemi içerir.
@@ -199,7 +249,7 @@ import { TaskHandler } from '../../infrastructure/common/decorators/task-handler
 @Injectable()
 @TaskHandler('my-custom-handler')
 export class MyCustomHandler implements ITaskHandler {
-  async execute(context: TaskContext): Promise<TaskResult> {
+  async execute(payload: any, context: TaskContext): Promise<TaskResult> {
     // Task logic buraya
     return {
       success: true,
@@ -230,11 +280,68 @@ POST /tasks
 - `accrue-monthly-dues` - Aylık aidat tahakkuku yapar
 - `check-overdue-debts` - Vadesi geçen borçları kontrol eder
 - `cleanup-old-data` - Eski verileri temizler
+- `cleanup-deleted-files` - Silinmiş dosyaları kalıcı olarak temizler (30 günden eski)
 
 ### Schedule Tipleri
 - **CRON**: Cron expression ile zamanlama (örn: `0 0 * * *` - her gün gece yarısı)
 - **INTERVAL**: Belirli aralıklarla çalıştırma (örn: her 5 dakikada bir)
 - **ONCE**: Tek seferlik çalıştırma
+
+## Notification System
+
+Sistem, event-driven mimari ile çalışan profesyonel bir bildirim sistemi içerir.
+
+### Özellikler
+- **Email Notifications**: Nodemailer ile email gönderimi
+- **SMS Notifications**: Mock implementation (gerçek SMS provider entegrasyonu için hazır)
+- **Template Engine**: Dinamik template rendering
+- **Event-Driven**: Sistem event'lerine otomatik bildirim gönderimi
+- **User Preferences**: Kullanıcı bazlı bildirim tercihleri
+- **Notification Queue**: Asenkron bildirim işleme
+
+### Event'ler
+Sistem aşağıdaki event'leri otomatik olarak dinler:
+- `UserCreatedEvent` - Yeni kullanıcı oluşturulduğunda
+- `DebtCreatedEvent` - Yeni borç oluşturulduğunda
+- `PaymentCreatedEvent` - Ödeme yapıldığında
+- `DebtOverdueEvent` - Borç vadesi geçtiğinde
+
+### Template Kullanımı
+Bildirim template'leri değişken desteği ile çalışır:
+```typescript
+// Template örneği
+{
+  "subject": "Hoş geldiniz {{userName}}!",
+  "body": "Merhaba {{userName}}, hesabınız oluşturuldu."
+}
+```
+
+## File Management System
+
+Sistem, polymorphic ilişkilerle çalışan profesyonel bir dosya yönetim sistemi içerir.
+
+### Özellikler
+- **File Upload**: Tek veya çoklu dosya yükleme
+- **File Validation**: MIME type, dosya boyutu, uzantı kontrolü
+- **Polymorphic Attachments**: Herhangi bir entity'ye dosya bağlama (Expense, Site, Unit, vb.)
+- **Local Storage**: Tarih bazlı klasör yapısı (YYYY/MM/DD)
+- **Soft Delete**: Dosya silme işlemlerinde soft delete
+- **Cleanup Task**: 30 günden eski silinmiş dosyaları otomatik temizleme
+- **Secure Naming**: UUID + original name ile güvenli dosya isimlendirme
+
+### Desteklenen Dosya Tipleri
+- **Documents**: PDF, DOC, DOCX, XLS, XLSX
+- **Images**: JPEG, PNG, GIF, WEBP
+- **Archives**: ZIP, RAR
+- **Text**: TXT, CSV
+
+### Dosya Kategorileri
+- `EXPENSE` - Gider dosyaları
+- `ANNOUNCEMENT` - Duyuru dosyaları
+- `CONTRACT` - Sözleşme dosyaları
+- `GENERAL` - Genel dosyalar
+- `REPORT` - Rapor dosyaları
+- `INVOICE` - Fatura dosyaları
 
 ## Yetkilendirme
 
@@ -256,6 +363,8 @@ Yetkiler otomatik olarak controller'lardaki `@DefineResource` decorator'ı ile o
 - SQL injection koruması (Prisma)
 - Soft delete mekanizması
 - Audit logging
+- File type validation
+- Secure file naming
 
 ## Veritabanı
 
@@ -308,6 +417,9 @@ npm run lint
 - **Validation**: class-validator, class-transformer
 - **Documentation**: Swagger/OpenAPI
 - **Scheduling**: cron (node-cron)
+- **Email**: Nodemailer
+- **File Upload**: Multer
+- **Event System**: @nestjs/event-emitter
 
 ## Lisans
 
