@@ -18,6 +18,7 @@ Site ve apartman yönetimi için geliştirilmiş, Clean Architecture prensipleri
 - **Notification System**: Email ve SMS bildirim sistemi (event-driven)
 - **File Management**: Dosya yükleme, indirme ve yönetim sistemi
 - **Announcement System**: Gelişmiş duyuru yönetim sistemi (kategoriler, öncelikler, hedef kitle, okunma takibi)
+- **Poll/Survey System**: Gelişmiş anket/anket yönetim sistemi (çoklu soru tipleri, sonuç görünürlüğü, istatistikler, export)
 
 ### Teknik Özellikler
 - **Clean Architecture**: Core, Infrastructure, Use-Cases katmanları
@@ -62,7 +63,8 @@ src/
     ├── notification-template/ # Notification template management
     ├── notification-preference/ # User notification preferences
     ├── file/                # File management
-    └── announcement/        # Announcement management
+    ├── announcement/        # Announcement management
+    └── poll/                # Poll/Survey management
 ```
 
 ## Kurulum
@@ -251,6 +253,24 @@ Uygulama başlatıldıktan sonra Swagger dokümantasyonuna erişebilirsiniz:
 - `POST /announcements/read-all` - Tüm duyuruları okundu olarak işaretle (query: announcementIds)
 - `GET /announcements/:id/files` - Duyuruya bağlı dosyalar
 
+### Poll/Survey Management
+- `POST /polls` - Anket oluştur
+- `GET /polls` - Anket listesi (filtreleme destekli)
+- `GET /polls/my` - Kullanıcının görebileceği anketler
+- `GET /polls/:id` - Anket detayı
+- `PATCH /polls/:id` - Anket güncelle
+- `DELETE /polls/:id` - Anket sil
+- `PATCH /polls/:id/publish` - Anketi yayınla
+- `PATCH /polls/:id/close` - Anketi kapat
+- `POST /polls/:id/questions` - Ankete soru ekle
+- `PATCH /polls/:id/questions/:questionId` - Anket sorusunu güncelle
+- `DELETE /polls/:id/questions/:questionId` - Anket sorusunu sil
+- `POST /polls/:id/respond` - Anket yanıtla
+- `PATCH /polls/:id/response` - Anket yanıtını güncelle
+- `GET /polls/:id/statistics` - Anket istatistikleri
+- `GET /polls/:id/export` - Anket sonuçlarını export et (PDF/Excel)
+- `GET /polls/:id/files` - Ankete bağlı dosyalar
+
 ## Scheduled Task System
 
 Sistem, handler-based plugin mimarisi ile çalışan dinamik bir görev zamanlama sistemi içerir.
@@ -301,6 +321,7 @@ POST /tasks
 - `cleanup-old-data` - Eski verileri temizler
 - `cleanup-deleted-files` - Silinmiş dosyaları kalıcı olarak temizler (30 günden eski)
 - `archive-expired-announcements` - Süresi dolan duyuruları otomatik olarak arşivler
+- `close-expired-polls` - Süresi dolan anketleri otomatik olarak kapatır
 
 ### Schedule Tipleri
 - **CRON**: Cron expression ile zamanlama (örn: `0 0 * * *` - her gün gece yarısı)
@@ -327,6 +348,8 @@ Sistem aşağıdaki event'leri otomatik olarak dinler:
 - `DebtOverdueEvent` - Borç vadesi geçtiğinde
 - `AnnouncementPublishedEvent` - Duyuru yayınlandığında
 - `AnnouncementExpiredEvent` - Duyuru süresi dolduğunda
+- `PollPublishedEvent` - Anket yayınlandığında
+- `PollClosedEvent` - Anket kapatıldığında
 
 ### Template Kullanımı
 Bildirim template'leri değişken desteği ile çalışır:
@@ -364,6 +387,7 @@ Sistem, polymorphic ilişkilerle çalışan profesyonel bir dosya yönetim siste
 - `GENERAL` - Genel dosyalar
 - `REPORT` - Rapor dosyaları
 - `INVOICE` - Fatura dosyaları
+- `POLL` - Anket dosyaları
 
 ## Announcement System
 
@@ -426,6 +450,103 @@ PATCH /announcements/1/publish
 
 # Duyuruyu okundu olarak işaretle
 POST /announcements/1/read
+```
+
+## Poll/Survey System
+
+Sistem, gelişmiş özelliklerle donatılmış profesyonel bir anket/anket yönetim sistemi içerir.
+
+### Özellikler
+- **Çoklu Soru Tipleri**: Tek seçim, çoklu seçim, kısa metin, uzun metin, sayısal, tarih
+- **Sonuç Görünürlüğü**: Herkese açık, özel (sadece admin), anket kapandıktan sonra görünür
+- **Yanıt Düzenlenebilirliği**: Her zaman, anket kapanana kadar, hiçbir zaman
+- **Hedef Kitle**: Duyurular gibi site/blok/daire/kullanıcı bazlı hedefleme
+- **Otomatik Kapatma**: Süresi dolan anketleri otomatik kapatma (scheduled task)
+- **Manuel Kapatma**: Admin tarafından istendiğinde manuel kapatma
+- **İstatistikler**: Soru bazlı detaylı istatistik hesaplama
+- **Export**: PDF ve Excel formatında sonuç export'u
+- **Dosya Eklentileri**: Anketlere dosya ekleme desteği
+- **Bildirim Entegrasyonu**: Anket yayınlandığında otomatik bildirim gönderimi
+
+### Anket Durumları
+- `DRAFT` - Taslak (henüz yayınlanmamış)
+- `PUBLISHED` - Yayınlanmış (aktif)
+- `CLOSED` - Kapatılmış (süresi dolmuş veya manuel kapatılmış)
+- `ARCHIVED` - Arşivlenmiş
+
+### Soru Tipleri
+- `SINGLE_CHOICE` - Tek seçim (radio button)
+- `MULTIPLE_CHOICE` - Çoklu seçim (checkbox)
+- `SHORT_TEXT` - Kısa metin (input)
+- `LONG_TEXT` - Uzun metin (textarea)
+- `NUMBER` - Sayısal değer
+- `DATE` - Tarih seçimi
+
+### Sonuç Görünürlüğü
+- `PUBLIC` - Herkese açık (anket açıkken bile)
+- `PRIVATE` - Sadece anket sahibi/admin
+- `AFTER_CLOSED` - Anket kapandıktan sonra herkese açık
+
+### Yanıt Düzenlenebilirliği
+- `ALWAYS` - İstediği zaman değiştirebilir
+- `UNTIL_CLOSED` - Anket kapanana kadar değiştirebilir
+- `NEVER` - Bir kez yanıt verildikten sonra değiştirilemez
+
+### Anket Kapatma Mantığı
+Anket kapatma işlemi iki mekanizma ile çalışır:
+1. **Status Field**: Manuel kontrol için (PUBLISHED, CLOSED, DRAFT, ARCHIVED)
+2. **endDate Field**: Otomatik kontrol için (tarih geçtiğinde otomatik kapatılır)
+3. **Runtime Kontrolü**: `isActive()` metodu hem status hem endDate kontrolü yapar
+4. **Scheduled Task**: Günlük çalışarak süresi dolan anketleri otomatik kapatır
+
+### Kullanım Örneği
+```bash
+# Anket oluştur
+POST /polls
+{
+  "title": "Site Yönetimi Memnuniyet Anketi",
+  "description": "Lütfen görüşlerinizi paylaşın",
+  "resultVisibility": "AFTER_CLOSED",
+  "responseEditable": "UNTIL_CLOSED",
+  "targetAudience": "ALL",
+  "startDate": "2025-01-01T00:00:00Z",
+  "endDate": "2025-01-31T23:59:59Z",
+  "fileIds": [1, 2]
+}
+
+# Soru ekle
+POST /polls/1/questions
+{
+  "questionText": "Site yönetiminden memnun musunuz?",
+  "questionType": "SINGLE_CHOICE",
+  "isRequired": true,
+  "options": [
+    { "optionText": "Çok Memnun", "order": 0 },
+    { "optionText": "Memnun", "order": 1 },
+    { "optionText": "Orta", "order": 2 },
+    { "optionText": "Memnun Değilim", "order": 3 }
+  ]
+}
+
+# Anketi yayınla
+PATCH /polls/1/publish
+
+# Anket yanıtla
+POST /polls/1/respond
+{
+  "answers": [
+    {
+      "questionId": 1,
+      "selectedOptionIds": [1]
+    }
+  ]
+}
+
+# İstatistikleri görüntüle
+GET /polls/1/statistics
+
+# Sonuçları export et
+GET /polls/1/export?format=pdf&includeRawData=false
 ```
 
 ## Yetkilendirme
